@@ -19,6 +19,7 @@
         <ProjectReference Include="..\BlazorApp.Client\BlazorApp.Client.csproj" />
         <PackageReference Include="LigerShark.WebOptimizer.Core" Version="3.0.426" />
         <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="8.0.8" />
+        <PackageReference Include="Microsoft.AspNetCore.SystemWebAdapters.CoreServices" Version="2.0.0" />
         <PackageReference Include="Yarp.ReverseProxy" Version="2.2.0" />
     </ItemGroup>
 

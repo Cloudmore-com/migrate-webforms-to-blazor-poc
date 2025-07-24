@@ -10,6 +10,11 @@
         <hr />
         <footer>
             <p>&copy; 2024 - My ASP.NET Application</p>
+            <span>
+                UserInitialized: @sessionData.UserInitialized |
+                SessionID: @sessionData.SessionID |
+                VisitTime: @sessionData.VisitTime
+            </span>
         </footer>
     </div>
 </div>
@@ -19,3 +24,32 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private SessionData sessionData = new SessionData();
+
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
+    protected override Task OnInitializedAsync()
+    {
+        if(HttpContext != null)
+        {
+            var webHttpContext = ((System.Web.HttpContext)HttpContext);
+            if (webHttpContext != null && webHttpContext.Session != null)
+            {
+                sessionData.UserInitialized = (bool?)webHttpContext.Session["UserInitialized"] ?? false;
+                sessionData.SessionID = (string?)webHttpContext.Session["SessionID"] ?? string.Empty;
+                sessionData.VisitTime = (DateTime?)webHttpContext.Session["VisitTime"] ?? null;
+            }
+        }
+
+        return base.OnInitializedAsync();
+    }
+    private class SessionData
+    {
+        public bool UserInitialized { get; set; }
+        public string SessionID { get; set; } = string.Empty;
+        public DateTime? VisitTime { get; set; } = null;
+    }
+}

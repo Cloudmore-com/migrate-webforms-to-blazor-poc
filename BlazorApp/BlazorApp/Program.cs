@@ -3,6 +3,19 @@ using BlazorApp.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddSystemWebAdapters()
+    .AddJsonSessionSerializer(options => {
+        options.RegisterKey<bool>("UserInitialized");
+        options.RegisterKey<string>("SessionID");
+        options.RegisterKey<DateTime>("VisitTime");
+    })
+    .AddRemoteAppClient(options =>
+    {
+        options.RemoteAppUrl = new(builder.Configuration["ProxyTo"]);
+        options.ApiKey = builder.Configuration["RemoteAppApiKey"];
+    })
+    .AddSessionClient();
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveWebAssemblyComponents();
@@ -48,11 +61,15 @@ else
 app.UseHttpsRedirection();
 app.UseWebOptimizer();
 app.UseStaticFiles();
+
+app.UseSystemWebAdapters();
+
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
     .AddInteractiveWebAssemblyRenderMode()
-    .AddAdditionalAssemblies(typeof(BlazorApp.Client._Imports).Assembly);
+    .AddAdditionalAssemblies(typeof(BlazorApp.Client._Imports).Assembly)
+    .RequireSystemWebAdapterSession();
 
 app.UseHttpsRedirection();
 app.MapForwarder("/Scripts/{**catchAll}", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 1);
