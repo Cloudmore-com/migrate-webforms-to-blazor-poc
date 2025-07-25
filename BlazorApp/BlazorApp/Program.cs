@@ -1,5 +1,8 @@
 using BlazorApp.Client.Pages;
 using BlazorApp.Components;
+using System.Diagnostics;
+using System.Net;
+using Yarp.ReverseProxy.Forwarder;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,13 +12,19 @@ builder.Services.AddSystemWebAdapters()
         options.RegisterKey<string>("SessionID");
         options.RegisterKey<DateTime>("VisitTime");
         options.RegisterKey<string>("BlazorString");
+        // Add authentication-related session keys
+        options.RegisterKey<string>("UserName");
+        options.RegisterKey<bool>("IsAuthenticated");
     })
     .AddRemoteAppClient(options =>
     {
         options.RemoteAppUrl = new(builder.Configuration["ProxyTo"]);
         options.ApiKey = builder.Configuration["RemoteAppApiKey"];
     })
-    .AddSessionClient();
+    .AddSessionClient()
+    .AddAuthenticationClient(true);
+
+
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -42,8 +51,19 @@ builder.Services.AddWebOptimizer(pipeline => {
         "Content/site.css").UseContentRoot();
 });
 
-//builder.Services.AddSystemWebAdapters();
 builder.Services.AddHttpForwarder();
+builder.Services.AddAuthorization(); // Added line
+
+var httpClient = new HttpMessageInvoker(new SocketsHttpHandler
+{
+    UseProxy = false,
+    AllowAutoRedirect = true,
+    AutomaticDecompression = DecompressionMethods.None,
+    UseCookies = false,
+    EnableMultipleHttp2Connections = true,
+    ActivityHeadersPropagator = new ReverseProxyPropagator(DistributedContextPropagator.Current),
+    ConnectTimeout = TimeSpan.FromSeconds(15),
+});
 
 var app = builder.Build();
 
@@ -65,6 +85,8 @@ app.UseStaticFiles();
 
 app.UseSystemWebAdapters();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
@@ -72,11 +94,59 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(BlazorApp.Client._Imports).Assembly)
     .RequireSystemWebAdapterSession();
 
-app.UseHttpsRedirection();
-app.MapForwarder("/Scripts/{**catchAll}", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 1);
-app.MapForwarder("/Content/{**catchAll}", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 2);
-app.MapForwarder("/bundles/{**catchAll}", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 3);
-app.MapForwarder("/About", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 4);
-app.MapForwarder("/Contact", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 5);
+var redirectTransformer = new RedirectTransformer();
+
+app.MapForwarder("/About", app.Configuration["ProxyTo"], new ForwarderRequestConfig(), redirectTransformer, httpClient)
+   .Add(static builder => ((RouteEndpointBuilder)builder).Order = 4);
+app.MapForwarder("/Contact", app.Configuration["ProxyTo"], new ForwarderRequestConfig(), redirectTransformer, httpClient)
+   .Add(static builder => ((RouteEndpointBuilder)builder).Order = 5);
+app.MapForwarder("/Login", app.Configuration["ProxyTo"], new ForwarderRequestConfig(), redirectTransformer, httpClient)
+   .Add(static builder => ((RouteEndpointBuilder)builder).Order = 6);
+app.MapForwarder("/Logout", app.Configuration["ProxyTo"], new ForwarderRequestConfig(), redirectTransformer, httpClient)
+   .Add(static builder => ((RouteEndpointBuilder)builder).Order = 7);
+app.MapForwarder("/Login.aspx", app.Configuration["ProxyTo"], new ForwarderRequestConfig(), redirectTransformer, httpClient)
+   .Add(static builder => ((RouteEndpointBuilder)builder).Order = 8);
+app.MapForwarder("/Logout.aspx", app.Configuration["ProxyTo"], new ForwarderRequestConfig(), redirectTransformer, httpClient)
+   .Add(static builder => ((RouteEndpointBuilder)builder).Order = 9);
 
 app.Run();
+
+class RedirectTransformer : HttpTransformer
+{
+    public override async ValueTask<bool> TransformResponseAsync(HttpContext httpContext,
+        HttpResponseMessage? proxyResponse,
+        CancellationToken cancellationToken)
+    {
+        if (proxyResponse == null)
+        {
+            return false;
+        }
+
+        // Handle redirects specially
+        if ((int)proxyResponse.StatusCode >= 300 && (int)proxyResponse.StatusCode < 400)
+        {
+            if (proxyResponse.Headers.Location != null)
+            {
+                // Get the redirect URL
+                var locationUrl = proxyResponse.Headers.Location.ToString();
+
+                // Modify the location if it's from the proxied server to make it relative to our app
+                string proxyBase = httpContext.RequestServices.GetRequiredService<IConfiguration>()["ProxyTo"] ?? string.Empty;
+
+                if (locationUrl.StartsWith(proxyBase))
+                {
+                    // Convert to a relative URL for our app
+                    locationUrl = locationUrl.Substring(proxyBase.Length - 1); // -1 to keep the leading /
+                }
+
+                // Redirect in our app instead
+                httpContext.Response.Redirect(locationUrl);
+                return true;
+            }
+        }
+
+        // For non-redirect responses, use the default transformer
+        await base.TransformResponseAsync(httpContext, proxyResponse, cancellationToken);
+        return true;
+    }
+}
