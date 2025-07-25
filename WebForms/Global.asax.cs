@@ -23,6 +23,7 @@ namespace WebForms
                     options.RegisterKey<bool>("UserInitialized");
                     options.RegisterKey<string>("SessionID");
                     options.RegisterKey<DateTime>("VisitTime");
+                    options.RegisterKey<string>("BlazorString");
                 })
                 .AddRemoteAppServer(options =>
                 {

@@ -10,6 +10,7 @@
             <li>UserInitialized: <%= Session["UserInitialized"] ?? "N/A" %></li>
             <li>SessionID: <%= Session["SessionID"] ?? "N/A" %></li>
             <li>VisitTime: <%= Session["VisitTime"] ?? "N/A" %></li>
+            <li>BlazorString: <%= Session["BlazorString"] ?? "N/A" %></li>
         </ul>
     </main>
 </asp:Content>

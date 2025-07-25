@@ -13,7 +13,8 @@
             <span>
                 UserInitialized: @sessionData.UserInitialized |
                 SessionID: @sessionData.SessionID |
-                VisitTime: @sessionData.VisitTime
+                VisitTime: @sessionData.VisitTime |
+                BlazorString: @sessionData.BlazorString
             </span>
         </footer>
     </div>
@@ -41,6 +42,13 @@
                 sessionData.UserInitialized = (bool?)webHttpContext.Session["UserInitialized"] ?? false;
                 sessionData.SessionID = (string?)webHttpContext.Session["SessionID"] ?? string.Empty;
                 sessionData.VisitTime = (DateTime?)webHttpContext.Session["VisitTime"] ?? null;
+
+                if (string.IsNullOrWhiteSpace(webHttpContext.Session["BlazorString"] as string))
+                {
+                    webHttpContext.Session["BlazorString"] = "Blazor string initialized at " + DateTime.Now.ToString("o");
+                }
+
+                sessionData.BlazorString = webHttpContext.Session["BlazorString"] as string ?? string.Empty;
             }
         }
 
@@ -51,5 +59,6 @@
         public bool UserInitialized { get; set; }
         public string SessionID { get; set; } = string.Empty;
         public DateTime? VisitTime { get; set; } = null;
+        public string BlazorString { get; set; } = string.Empty;
     }
 }
