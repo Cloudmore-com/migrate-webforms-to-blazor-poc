@@ -24,12 +24,16 @@ namespace WebForms
                     options.RegisterKey<string>("SessionID");
                     options.RegisterKey<DateTime>("VisitTime");
                     options.RegisterKey<string>("BlazorString");
+                    // Add authentication-related session keys
+                    options.RegisterKey<string>("UserName");
+                    options.RegisterKey<bool>("IsAuthenticated");
                 })
                 .AddRemoteAppServer(options =>
                 {
                     options.ApiKey = ConfigurationManager.AppSettings["RemoteAppApiKey"];
                 })
-                .AddSessionServer();
+                .AddSessionServer()
+                .AddAuthenticationServer();
         }
 
         void Session_Start(object sender, EventArgs e)
@@ -39,6 +43,16 @@ namespace WebForms
             Session["SessionID"] = Session.SessionID;
             Session["VisitTime"] = DateTime.Now;
             // Add more session variables as needed
+        }
+
+        protected void Application_AuthenticateRequest(object sender, EventArgs e)
+        {
+            // If the user is authenticated, update session variables to track authentication state
+            if (HttpContext.Current.User != null && HttpContext.Current.User.Identity.IsAuthenticated)
+            {
+                Session["UserName"] = HttpContext.Current.User.Identity.Name;
+                Session["IsAuthenticated"] = true;
+            }
         }
     }
 }
