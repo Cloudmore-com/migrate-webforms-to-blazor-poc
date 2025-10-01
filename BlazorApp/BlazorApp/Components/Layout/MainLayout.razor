@@ -16,6 +16,12 @@
                 VisitTime: @sessionData.VisitTime |
                 BlazorString: @sessionData.BlazorString
             </span>
+            <br />
+            <p>
+                Is Authenticated: @HttpContext?.User?.Identity?.IsAuthenticated <br />
+                User Name: @HttpContext?.User?.Identity?.Name <br />
+                User Claims: @string.Join(", ", HttpContext?.User?.Claims?.Select(c => c.Type + "=" + c.Value) ?? Array.Empty<string>()) <br />
+            </p>
         </footer>
     </div>
 </div>
@@ -49,7 +55,7 @@
                 }
 
                 sessionData.BlazorString = webHttpContext.Session["BlazorString"] as string ?? string.Empty;
-            }
+            }   
         }
 
         return base.OnInitializedAsync();

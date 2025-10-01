@@ -1,5 +1,6 @@
-using BlazorApp.Client.Pages;
 using BlazorApp.Components;
+using Microsoft.AspNetCore.SystemWebAdapters;
+using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,13 +10,19 @@ builder.Services.AddSystemWebAdapters()
         options.RegisterKey<string>("SessionID");
         options.RegisterKey<DateTime>("VisitTime");
         options.RegisterKey<string>("BlazorString");
+        // Add authentication-related session keys
+        options.RegisterKey<string>("UserName");
+        options.RegisterKey<bool>("IsAuthenticated");
     })
     .AddRemoteAppClient(options =>
     {
         options.RemoteAppUrl = new(builder.Configuration["ProxyTo"]);
         options.ApiKey = builder.Configuration["RemoteAppApiKey"];
     })
-    .AddSessionClient();
+    .AddSessionClient()
+    .AddAuthenticationClient(true);
+
+
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -42,8 +49,8 @@ builder.Services.AddWebOptimizer(pipeline => {
         "Content/site.css").UseContentRoot();
 });
 
-//builder.Services.AddSystemWebAdapters();
-builder.Services.AddHttpForwarder();
+builder.Services.AddReverseProxy(); // Changed line
+builder.Services.AddAuthorization(); // Added line
 
 var app = builder.Build();
 
@@ -65,6 +72,8 @@ app.UseStaticFiles();
 
 app.UseSystemWebAdapters();
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapRazorComponents<App>()
@@ -72,11 +81,10 @@ app.MapRazorComponents<App>()
     .AddAdditionalAssemblies(typeof(BlazorApp.Client._Imports).Assembly)
     .RequireSystemWebAdapterSession();
 
-app.UseHttpsRedirection();
-app.MapForwarder("/Scripts/{**catchAll}", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 1);
-app.MapForwarder("/Content/{**catchAll}", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 2);
-app.MapForwarder("/bundles/{**catchAll}", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 3);
-app.MapForwarder("/About", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 4);
-app.MapForwarder("/Contact", app.Configuration["ProxyTo"]).Add(static builder => ((RouteEndpointBuilder)builder).Order = 5);
+app.MapForwarder("/{**catch-all}", app.Services.GetRequiredService<IOptions<RemoteAppClientOptions>>().Value.RemoteAppUrl.OriginalString)
+    // Ensures this route has the lowest priority (runs last)
+    .WithOrder(int.MaxValue)
+    // Skips remaining middleware when this route matches
+    .ShortCircuit();
 
 app.Run();
