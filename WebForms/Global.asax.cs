@@ -18,6 +18,7 @@ namespace WebForms
             // Code that runs on application startup
             RouteConfig.RegisterRoutes(RouteTable.Routes);
             BundleConfig.RegisterBundles(BundleTable.Bundles);
+
             SystemWebAdapterConfiguration.AddSystemWebAdapters(this)
                 .AddJsonSessionSerializer(options => {
                     options.RegisterKey<bool>("UserInitialized");
@@ -45,14 +46,14 @@ namespace WebForms
             // Add more session variables as needed
         }
 
-        protected void Application_AuthenticateRequest(object sender, EventArgs e)
-        {
-            // If the user is authenticated, update session variables to track authentication state
-            if (HttpContext.Current.User != null && HttpContext.Current.User.Identity.IsAuthenticated)
-            {
-                Session["UserName"] = HttpContext.Current.User.Identity.Name;
-                Session["IsAuthenticated"] = true;
-            }
-        }
+        //protected void Application_AuthenticateRequest(object sender, EventArgs e)
+        //{
+        //    // If the user is authenticated, update session variables to track authentication state
+        //    if (HttpContext.Current.User != null && HttpContext.Current.User.Identity.IsAuthenticated)
+        //    {
+        //        Session["UserName"] = HttpContext.Current.User.Identity.Name;
+        //        Session["IsAuthenticated"] = true;
+        //    }
+        //}
     }
 }
